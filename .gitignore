@@ -1,1 +1,11 @@
 .env
+
+# Local runtime data
+db-data/
+import/
+
+# Local tooling state
+.codex
+
+# App build/install artifacts
+
