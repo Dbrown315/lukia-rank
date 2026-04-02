@@ -42,6 +42,25 @@ The importer looks for columns like:
 
 If the phrase cell only says `bowling ball`, the importer stores it as `Lukia bowling ball`.
 
+## Change the database password safely
+
+If you already have data in `db-data/`, changing `POSTGRES_PASSWORD` in `.env` is not enough by itself. The existing Postgres user inside the database must also be updated.
+
+1. Update `POSTGRES_PASSWORD` in `.env`.
+2. Apply the same password inside Postgres:
+
+```bash
+docker compose exec -T db psql -U lukia -d lukiarank -c "ALTER USER lukia WITH PASSWORD 'YOUR_NEW_PASSWORD';"
+```
+
+3. Restart the app so it reconnects with the new password:
+
+```bash
+docker compose restart app
+```
+
+If you do not care about keeping existing data, you can instead delete `db-data/` and recreate the stack from scratch.
+
 ## Notes for later
 
 - You can put this behind your final domain later by changing `APP_URL`.
