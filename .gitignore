@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 
 # Local runtime data
 db-data/
@@ -8,4 +10,12 @@ import/
 .codex
 
 # App build/install artifacts
+app/node_modules/
 
+# Logs
+*.log
+app/npm-debug.log*
+
+# OS/editor noise
+.DS_Store
+Thumbs.db

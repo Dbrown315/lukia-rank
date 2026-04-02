@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lukia Rank</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <div>
+          <p class="eyebrow">Lukia Rank</p>
+          <h1>Database of our best, worst, and most harrowing Lukias</h1>
+          <p class="lede">
+            Post new entries, rate them from 1 to 5 stars, and browse the archive by
+            score, age, or author.
+          </p>
+        </div>
+        <div class="hero-card">
+          <p><strong>Site URL</strong></p>
+          <p><%= appUrl %></p>
+          <p class="muted">Swap this for your final domain later without changing the app.</p>
+        </div>
+      </section>
+
+      <% if (flashMessage) { %>
+        <p class="flash success"><%= flashMessage %></p>
+      <% } %>
+      <% if (flashError) { %>
+        <p class="flash error"><%= flashError %></p>
+      <% } %>
+
+      <section class="grid">
+        <div class="panel stack">
+          <h2>Name Login</h2>
+          <% if (currentUser) { %>
+            <p>You are posting as <strong><%= currentUser.name %></strong>.</p>
+            <form method="post" action="/logout">
+              <button type="submit" class="ghost">Switch name</button>
+            </form>
+          <% } else { %>
+            <form method="post" action="/login" class="stack">
+              <label for="name">Your name</label>
+              <input id="name" name="name" type="text" maxlength="40" placeholder="Lukia cheese" required />
+              <button type="submit">Enter</button>
+            </form>
+          <% } %>
+        </div>
+
+        <div class="panel stack">
+          <h2>Post a Lukia</h2>
+          <form method="post" action="/lukias" class="stack">
+            <label for="phrase">Phrase</label>
+            <input id="phrase" name="phrase" type="text" maxlength="140" placeholder="bowling ball" required />
+            <label for="created_at">Date</label>
+            <input id="created_at" name="created_at" type="date" />
+            <button type="submit">Post Lukia</button>
+          </form>
+          <p class="muted">You can type either “bowling ball” or the full “Lukia bowling ball”.</p>
+        </div>
+      </section>
+
+      <section class="panel stack">
+        <div class="toolbar">
+          <h2>All Lukias</h2>
+          <form method="get" action="/" class="sorter">
+            <label for="sort">Sort by</label>
+            <select id="sort" name="sort" onchange="this.form.submit()">
+              <% Object.entries(sortOptions).forEach(([key, option]) => { %>
+                <option value="<%= key %>" <%= key === selectedSort ? "selected" : "" %>>
+                  <%= option.label %>
+                </option>
+              <% }) %>
+            </select>
+            <label for="author">Author</label>
+            <select id="author" name="author" onchange="this.form.submit()">
+              <option value="">All authors</option>
+              <% authors.forEach((author) => { %>
+                <option
+                  value="<%= author.id %>"
+                  <%= Number(selectedAuthorId) === Number(author.id) ? "selected" : "" %>
+                >
+                  <%= author.name %>
+                </option>
+              <% }) %>
+            </select>
+            <noscript><button type="submit">Apply</button></noscript>
+          </form>
+        </div>
+
+        <% if (lukias.length === 0) { %>
+          <p class="muted">No Lukias yet. Post the first one.</p>
+        <% } %>
+
+        <div class="lukia-list">
+          <% lukias.forEach((lukia) => { %>
+            <article class="lukia-card">
+              <div class="lukia-copy">
+                <h3><%= lukia.phrase %></h3>
+                <p>
+                  By <strong><%= lukia.author_name %></strong>
+                  on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>
+                </p>
+                <p class="rating-summary">
+                  Average:
+                  <strong><%= lukia.average_rating === null ? "Unrated" : `${lukia.average_rating} / 5` %></strong>
+                  <% if (lukia.rating_count > 0) { %>
+                    from <%= lukia.rating_count %> rating<%= lukia.rating_count === 1 ? "" : "s" %>
+                  <% } %>
+                </p>
+              </div>
+
+              <form method="post" action="/ratings" class="rating-form">
+                <input type="hidden" name="lukia_id" value="<%= lukia.id %>" />
+                <input type="hidden" name="sort" value="<%= selectedSort %>" />
+                <input type="hidden" name="author" value="<%= selectedAuthorId || "" %>" />
+                <label for="rating-<%= lukia.id %>">Your rating</label>
+                <div class="rating-row">
+                  <select id="rating-<%= lukia.id %>" name="rating">
+                    <% for (let i = 1; i <= 5; i += 1) { %>
+                      <option value="<%= i %>" <%= Number(lukia.user_rating) === i ? "selected" : "" %>>
+                        <%= i %> star<%= i === 1 ? "" : "s" %>
+                      </option>
+                    <% } %>
+                  </select>
+                  <button type="submit">Save</button>
+                </div>
+              </form>
+            </article>
+          <% }) %>
+        </div>
+      </section>
+    </main>
+  </body>
+  </html>
