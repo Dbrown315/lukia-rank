@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Lukia Rank</title>
     <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
   </head>
   <body>
     <section class="hero-band">
@@ -30,105 +31,38 @@
       <% } %>
 
       <section class="grid">
-        <div class="panel stack">
+        <div class="panel stack" id="login-panel">
           <h2>Name Login</h2>
           <% if (currentUser) { %>
-            <p>You are posting as <strong><%= currentUser.name %></strong>.</p>
+            <p class="login-copy">You are posting as <strong><%= currentUser.name %></strong>.</p>
             <form method="post" action="/logout">
               <button type="submit" class="ghost">Switch name</button>
             </form>
           <% } else { %>
-            <form method="post" action="/login" class="stack">
+            <form method="post" action="/login" class="stack" id="login-form">
               <label for="name">Your name</label>
               <input id="name" name="name" type="text" maxlength="40" placeholder="Name" required />
               <button type="submit">Enter</button>
             </form>
           <% } %>
+          <p class="login-status" aria-live="polite"></p>
         </div>
 
-        <div class="panel stack">
+        <div class="panel stack" id="post-panel">
           <h2>Post a Lukia</h2>
-          <form method="post" action="/lukias" class="stack">
+          <form method="post" action="/lukias" class="stack" id="post-form">
             <label for="phrase">Phrase</label>
             <input id="phrase" name="phrase" type="text" maxlength="140" placeholder="bowling ball" required />
             <label for="created_at">Date</label>
             <input id="created_at" name="created_at" type="date" value="<%= defaultCreatedAt %>" />
             <button type="submit">Post Lukia</button>
           </form>
+          <p class="post-status" aria-live="polite"></p>
           <p class="muted">You can type either “bowling ball” or the full “Lukia bowling ball”.</p>
         </div>
       </section>
 
-      <section class="panel stack">
-        <div class="toolbar">
-          <h2>All Lukias</h2>
-          <form method="get" action="/" class="sorter">
-            <label for="sort">Sort by</label>
-            <select id="sort" name="sort" onchange="this.form.submit()">
-              <% Object.entries(sortOptions).forEach(([key, option]) => { %>
-                <option value="<%= key %>" <%= key === selectedSort ? "selected" : "" %>>
-                  <%= option.label %>
-                </option>
-              <% }) %>
-            </select>
-            <label for="author">Author</label>
-            <select id="author" name="author" onchange="this.form.submit()">
-              <option value="">All authors</option>
-              <% authors.forEach((author) => { %>
-                <option
-                  value="<%= author.id %>"
-                  <%= Number(selectedAuthorId) === Number(author.id) ? "selected" : "" %>
-                >
-                  <%= author.name %>
-                </option>
-              <% }) %>
-            </select>
-            <noscript><button type="submit">Apply</button></noscript>
-          </form>
-        </div>
-
-        <% if (lukias.length === 0) { %>
-          <p class="muted">No Lukias yet. Post the first one.</p>
-        <% } %>
-
-        <div class="lukia-list">
-          <% lukias.forEach((lukia) => { %>
-            <article class="lukia-card">
-              <div class="lukia-copy">
-                <h3><%= lukia.phrase %></h3>
-                <p>
-                  By <strong><%= lukia.author_name %></strong>
-                  on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>
-                </p>
-                <p class="rating-summary">
-                  Average:
-                  <strong><%= lukia.average_rating === null ? "Unrated" : `${lukia.average_rating} / 5` %></strong>
-                  <% if (lukia.rating_count > 0) { %>
-                    from <%= lukia.rating_count %> rating<%= lukia.rating_count === 1 ? "" : "s" %>
-                  <% } %>
-                </p>
-              </div>
-
-              <form method="post" action="/ratings" class="rating-form">
-                <input type="hidden" name="lukia_id" value="<%= lukia.id %>" />
-                <input type="hidden" name="sort" value="<%= selectedSort %>" />
-                <input type="hidden" name="author" value="<%= selectedAuthorId || "" %>" />
-                <label for="rating-<%= lukia.id %>">Your rating</label>
-                <div class="rating-row">
-                  <select id="rating-<%= lukia.id %>" name="rating">
-                    <% for (let i = 1; i <= 5; i += 1) { %>
-                      <option value="<%= i %>" <%= Number(lukia.user_rating) === i ? "selected" : "" %>>
-                        <%= i %> star<%= i === 1 ? "" : "s" %>
-                      </option>
-                    <% } %>
-                  </select>
-                  <button type="submit">Save</button>
-                </div>
-              </form>
-            </article>
-          <% }) %>
-        </div>
-      </section>
+      <%- include("_lukia-list") %>
     </main>
   </body>
   </html>

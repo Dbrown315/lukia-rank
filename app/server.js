@@ -158,9 +158,45 @@ async function loadLukias(sortKey, currentUserId, authorId) {
   };
 }
 
+async function getLukiaRatingSummary(lukiaId, currentUserId) {
+  const result = await pool.query(
+    `
+    SELECT
+      ROUND(AVG(r.rating)::numeric, 2) AS average_rating,
+      COUNT(r.id)::int AS rating_count,
+      MAX(CASE WHEN r.user_id = $2 THEN r.rating END) AS user_rating
+    FROM lukias l
+    LEFT JOIN ratings r ON r.lukia_id = l.id
+    WHERE l.id = $1
+    GROUP BY l.id
+    `,
+    [lukiaId, currentUserId || 0]
+  );
+
+  return result.rows[0] || {
+    average_rating: null,
+    rating_count: 0,
+    user_rating: null,
+  };
+}
+
+function renderView(viewName, data) {
+  return new Promise((resolve, reject) => {
+    app.render(viewName, data, (error, html) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      resolve(html);
+    });
+  });
+}
+
 app.get("/", async (req, res) => {
   const sort = req.query.sort || "recent";
   const authorId = Number.parseInt(req.query.author, 10);
+  const partial = req.query.partial;
   const flashMessage = req.session.flashMessage || null;
   const flashError = req.session.flashError || null;
   delete req.session.flashMessage;
@@ -171,7 +207,7 @@ app.get("/", async (req, res) => {
     loadLukias(sort, req.session.user?.id, authorId),
   ]);
 
-  res.render("index", {
+  const viewModel = {
     appUrl,
     flashMessage,
     flashError,
@@ -181,15 +217,44 @@ app.get("/", async (req, res) => {
     selectedAuthorId,
     defaultCreatedAt: new Date().toISOString().slice(0, 10),
     lukias,
-  });
+  };
+
+  if (partial === "lukias") {
+    res.render("_lukia-list", viewModel);
+    return;
+  }
+
+  res.render("index", viewModel);
 });
 
 app.post("/login", async (req, res) => {
+  const wantsJson =
+    req.get("x-requested-with") === "fetch" ||
+    req.accepts(["html", "json"]) === "json";
+
   try {
     const user = await getOrCreateUser(req.body.name);
     req.session.user = user;
+
+    if (wantsJson) {
+      res.json({
+        ok: true,
+        message: `Logged in as ${user.name}`,
+        user,
+      });
+      return;
+    }
+
     req.session.flashMessage = `Logged in as ${user.name}`;
   } catch (error) {
+    if (wantsJson) {
+      res.status(400).json({
+        ok: false,
+        error: error.message,
+      });
+      return;
+    }
+
     req.session.flashError = error.message;
   }
 
@@ -203,7 +268,16 @@ app.post("/logout", (req, res) => {
 });
 
 app.post("/lukias", async (req, res) => {
+  const wantsJson =
+    req.get("x-requested-with") === "fetch" ||
+    req.accepts(["html", "json"]) === "json";
+
   if (!req.session.user) {
+    if (wantsJson) {
+      res.status(401).json({ ok: false, error: "Pick a name before posting a Lukia." });
+      return;
+    }
+
     req.session.flashError = "Pick a name before posting a Lukia.";
     res.redirect("/");
     return;
@@ -214,12 +288,22 @@ app.post("/lukias", async (req, res) => {
   const createdAt = createdAtValue ? new Date(createdAtValue) : new Date();
 
   if (!phrase) {
+    if (wantsJson) {
+      res.status(400).json({ ok: false, error: "Please enter a Lukia phrase." });
+      return;
+    }
+
     req.session.flashError = "Please enter a Lukia phrase.";
     res.redirect("/");
     return;
   }
 
   if (Number.isNaN(createdAt.getTime())) {
+    if (wantsJson) {
+      res.status(400).json({ ok: false, error: "Please enter a valid date." });
+      return;
+    }
+
     req.session.flashError = "Please enter a valid date.";
     res.redirect("/");
     return;
@@ -233,11 +317,47 @@ app.post("/lukias", async (req, res) => {
       `,
       [phrase, req.session.user.id, createdAt]
     );
+
+    if (wantsJson) {
+      const authorId = Number.parseInt(req.body.author, 10);
+      const [authors, { selectedSort, selectedAuthorId, lukias }] = await Promise.all([
+        loadAuthors(),
+        loadLukias(req.body.sort || "recent", req.session.user.id, authorId),
+      ]);
+
+      const html = await renderView("_lukia-list", {
+        appUrl,
+        sortOptions: sortConfig,
+        selectedSort,
+        authors,
+        selectedAuthorId,
+        defaultCreatedAt: new Date().toISOString().slice(0, 10),
+        lukias,
+      });
+
+      res.json({
+        ok: true,
+        message: `Posted ${phrase}`,
+        html,
+      });
+      return;
+    }
+
     req.session.flashMessage = `Posted ${phrase}`;
   } catch (error) {
     if (error.code === "23505") {
+      if (wantsJson) {
+        res.status(409).json({ ok: false, error: "That Lukia already exists." });
+        return;
+      }
+
       req.session.flashError = "That Lukia already exists.";
     } else {
+      if (wantsJson) {
+        res.status(500).json({ ok: false, error: "Could not save that Lukia." });
+        return;
+      }
+
       req.session.flashError = "Could not save that Lukia.";
     }
   }
@@ -246,7 +366,16 @@ app.post("/lukias", async (req, res) => {
 });
 
 app.post("/ratings", async (req, res) => {
+  const wantsJson =
+    req.get("x-requested-with") === "fetch" ||
+    req.accepts(["html", "json"]) === "json";
+
   if (!req.session.user) {
+    if (wantsJson) {
+      res.status(401).json({ ok: false, error: "Pick a name before rating Lukias." });
+      return;
+    }
+
     req.session.flashError = "Pick a name before rating Lukias.";
     res.redirect("/");
     return;
@@ -258,6 +387,11 @@ app.post("/ratings", async (req, res) => {
   const author = req.body.author || "";
 
   if (!Number.isInteger(lukiaId) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
+    if (wantsJson) {
+      res.status(400).json({ ok: false, error: "Ratings must be between 1 and 5." });
+      return;
+    }
+
     req.session.flashError = "Ratings must be between 1 and 5.";
     res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}`);
     return;
@@ -272,6 +406,17 @@ app.post("/ratings", async (req, res) => {
     `,
     [lukiaId, req.session.user.id, rating]
   );
+
+  const summary = await getLukiaRatingSummary(lukiaId, req.session.user.id);
+
+  if (wantsJson) {
+    res.json({
+      ok: true,
+      message: "Rating saved.",
+      summary,
+    });
+    return;
+  }
 
   req.session.flashMessage = "Rating saved.";
   res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}`);
