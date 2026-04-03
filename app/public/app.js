@@ -53,14 +53,35 @@ async function refreshLukiaSection(searchParams, statusMessage) {
   currentSection.outerHTML = html;
 
   const newParams = new URLSearchParams(searchParams);
-  const nextUrl = new URL(window.location.href);
-  nextUrl.search = newParams.toString();
-  window.history.replaceState({}, "", nextUrl);
+  updateHistory(newParams);
 
   bindDynamicHandlers();
+  syncSortControlsWithUrl();
 
   if (statusMessage) {
     setStatus(document.querySelector(".sort-status"), statusMessage, "success");
+  }
+}
+
+function updateHistory(searchParams) {
+  const nextUrl = new URL(window.location.href);
+  nextUrl.search = searchParams.toString();
+  window.history.replaceState({}, "", nextUrl);
+}
+
+function syncSortControlsWithUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const sort = params.get("sort") || "recent";
+  const author = params.get("author") || "";
+  const sortSelect = document.querySelector("#sort");
+  const authorSelect = document.querySelector("#author");
+
+  if (sortSelect) {
+    sortSelect.value = sort;
+  }
+
+  if (authorSelect) {
+    authorSelect.value = author;
   }
 }
 
@@ -146,7 +167,9 @@ async function handlePostSubmit(event) {
       currentSection.outerHTML = payload.html;
     }
 
+    updateHistory(new URLSearchParams({ sort: currentSort, author: currentAuthor }));
     bindDynamicHandlers();
+    syncSortControlsWithUrl();
 
     postForm.reset();
     const dateInput = document.querySelector("#created_at");
@@ -192,7 +215,16 @@ async function handleDeleteSubmit(event) {
       currentSection.outerHTML = payload.html;
     }
 
+    const params = new URLSearchParams();
+    const sort = form.querySelector('input[name="sort"]')?.value || "recent";
+    const author = form.querySelector('input[name="author"]')?.value || "";
+    params.set("sort", sort);
+    if (author) {
+      params.set("author", author);
+    }
+    updateHistory(params);
     bindDynamicHandlers();
+    syncSortControlsWithUrl();
     setStatus(document.querySelector(".sort-status"), payload.message, "success");
   } catch (error) {
     setStatus(status, error.message, "error");
@@ -349,6 +381,8 @@ function bindDynamicHandlers() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  syncSortControlsWithUrl();
+
   const loginForm = document.querySelector("#login-form");
   if (loginForm) {
     loginForm.addEventListener("submit", handleLoginSubmit);
