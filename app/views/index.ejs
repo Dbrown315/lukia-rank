@@ -53,6 +53,7 @@
           <form method="post" action="/lukias" class="stack" id="post-form">
             <label for="phrase">Phrase</label>
             <input id="phrase" name="phrase" type="text" maxlength="140" placeholder="bowling ball" required />
+            <p class="phrase-status" aria-live="polite"></p>
             <label for="created_at">Date</label>
             <input id="created_at" name="created_at" type="date" value="<%= defaultCreatedAt %>" />
             <button type="submit">Post Lukia</button>

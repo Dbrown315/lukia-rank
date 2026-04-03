@@ -26,6 +26,8 @@ function setStatus(element, message, state) {
   }
 }
 
+let phraseCheckTimer = null;
+
 async function refreshLukiaSection(searchParams, statusMessage) {
   const url = new URL(window.location.href);
   url.search = searchParams.toString();
@@ -96,6 +98,9 @@ async function handleLoginSubmit(event) {
         <p class="login-status" data-state="success" aria-live="polite">${payload.message}</p>
       `;
     }
+
+    const params = new URLSearchParams(window.location.search);
+    await refreshLukiaSection(params, "Updated for your login.");
   } catch (error) {
     setStatus(loginStatus, error.message, "error");
   } finally {
@@ -110,11 +115,13 @@ async function handlePostSubmit(event) {
 
   const postForm = event.currentTarget;
   const postStatus = document.querySelector(".post-status");
+  const phraseStatus = document.querySelector(".phrase-status");
   const button = postForm.querySelector("button[type='submit']");
   const currentSort = document.querySelector("#sort")?.value || "recent";
   const currentAuthor = document.querySelector("#author")?.value || "";
 
   setStatus(postStatus, "Posting...", "pending");
+  setStatus(phraseStatus, "", null);
   if (button) {
     button.disabled = true;
   }
@@ -153,6 +160,100 @@ async function handlePostSubmit(event) {
   } finally {
     if (button) {
       button.disabled = false;
+    }
+  }
+}
+
+async function handleDeleteSubmit(event) {
+  event.preventDefault();
+
+  const form = event.currentTarget;
+  const status = form.querySelector(".delete-status");
+  const button = form.querySelector("button[type='submit']");
+
+  setStatus(status, "Deleting...", "pending");
+  if (button) {
+    button.disabled = true;
+  }
+
+  try {
+    const payload = await fetchJson(form.action, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "X-Requested-With": "fetch",
+        "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+      },
+      body: toFormBody(form),
+    });
+
+    const currentSection = document.querySelector("#lukia-section");
+    if (currentSection) {
+      currentSection.outerHTML = payload.html;
+    }
+
+    bindDynamicHandlers();
+    setStatus(document.querySelector(".sort-status"), payload.message, "success");
+  } catch (error) {
+    setStatus(status, error.message, "error");
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function checkDuplicatePhrase() {
+  const phraseInput = document.querySelector("#phrase");
+  const phraseStatus = document.querySelector(".phrase-status");
+  const postButton = document.querySelector("#post-form button[type='submit']");
+
+  if (!phraseInput) {
+    return;
+  }
+
+  const rawPhrase = phraseInput.value.trim();
+  if (!rawPhrase) {
+    setStatus(phraseStatus, "", null);
+    if (postButton) {
+      postButton.disabled = false;
+    }
+    return;
+  }
+
+  try {
+    const url = new URL("/lukias/check", window.location.origin);
+    url.searchParams.set("phrase", rawPhrase);
+
+    const response = await fetch(url, {
+      headers: {
+        Accept: "application/json",
+        "X-Requested-With": "fetch",
+      },
+    });
+
+    const payload = await response.json();
+
+    if (payload.exists) {
+      setStatus(
+        phraseStatus,
+        `Warning: this already exists as ${payload.existingPhrase}.`,
+        "error"
+      );
+      if (postButton) {
+        postButton.disabled = true;
+      }
+      return;
+    }
+
+    setStatus(phraseStatus, `Will post as ${payload.normalizedPhrase}.`, "success");
+    if (postButton) {
+      postButton.disabled = false;
+    }
+  } catch (_error) {
+    setStatus(phraseStatus, "", null);
+    if (postButton) {
+      postButton.disabled = false;
     }
   }
 }
@@ -223,6 +324,14 @@ function bindDynamicHandlers() {
     form.addEventListener("submit", handleRatingSubmit);
   }
 
+  for (const form of document.querySelectorAll(".delete-form")) {
+    if (form.dataset.bound === "true") {
+      continue;
+    }
+    form.dataset.bound = "true";
+    form.addEventListener("submit", handleDeleteSubmit);
+  }
+
   const sortForm = document.querySelector("#sort-form");
   if (sortForm && sortForm.dataset.bound !== "true") {
     sortForm.dataset.bound = "true";
@@ -248,6 +357,20 @@ document.addEventListener("DOMContentLoaded", () => {
   const postForm = document.querySelector("#post-form");
   if (postForm) {
     postForm.addEventListener("submit", handlePostSubmit);
+
+    const phraseInput = document.querySelector("#phrase");
+    if (phraseInput && phraseInput.dataset.bound !== "true") {
+      phraseInput.dataset.bound = "true";
+      phraseInput.addEventListener("input", () => {
+        if (phraseCheckTimer) {
+          window.clearTimeout(phraseCheckTimer);
+        }
+
+        phraseCheckTimer = window.setTimeout(() => {
+          void checkDuplicatePhrase();
+        }, 250);
+      });
+    }
   }
 
   bindDynamicHandlers();

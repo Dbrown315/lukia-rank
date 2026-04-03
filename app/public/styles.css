@@ -226,6 +226,25 @@ button.ghost {
   font-size: 0.95rem;
 }
 
+.phrase-status,
+.delete-status {
+  min-height: 1.2em;
+  margin-bottom: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.delete-form {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+  margin-bottom: 0.9rem;
+}
+
+.delete-button {
+  padding-inline: 0.95rem;
+}
+
 .rating-status[data-state="success"] {
   color: var(--accent-dark);
 }
@@ -235,7 +254,8 @@ button.ghost {
 }
 
 .post-status[data-state="success"],
-.sort-status[data-state="success"] {
+.sort-status[data-state="success"],
+.phrase-status[data-state="success"] {
   color: var(--accent-dark);
 }
 
@@ -248,7 +268,9 @@ button.ghost {
 }
 
 .post-status[data-state="error"],
-.sort-status[data-state="error"] {
+.sort-status[data-state="error"],
+.phrase-status[data-state="error"],
+.delete-status[data-state="error"] {
   color: #b84a67;
 }
 

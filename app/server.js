@@ -155,6 +155,7 @@ async function loadLukias(sortKey, currentUserId, authorId) {
     SELECT
       l.id,
       l.phrase,
+      l.author_id,
       l.created_at,
       u.name AS author_name,
       ROUND(AVG(r.rating)::numeric, 2) AS average_rating,
@@ -164,7 +165,7 @@ async function loadLukias(sortKey, currentUserId, authorId) {
     JOIN users u ON u.id = l.author_id
     LEFT JOIN ratings r ON r.lukia_id = l.id
     ${whereClause}
-    GROUP BY l.id, u.name
+    GROUP BY l.id, l.author_id, u.name
     ORDER BY ${sortConfig[selectedSort].orderBy}
   `;
 
@@ -173,6 +174,38 @@ async function loadLukias(sortKey, currentUserId, authorId) {
     selectedSort,
     selectedAuthorId,
     lukias: result.rows,
+  };
+}
+
+async function findExistingLukia(phrase) {
+  const result = await pool.query(
+    `
+    SELECT id, phrase
+    FROM lukias
+    WHERE lower(phrase) = lower($1)
+    LIMIT 1
+    `,
+    [phrase]
+  );
+
+  return result.rows[0] || null;
+}
+
+async function buildLukiaSectionData(sort, currentUser, authorId) {
+  const [authors, { selectedSort, selectedAuthorId, lukias }] = await Promise.all([
+    loadAuthors(),
+    loadLukias(sort, currentUser?.id, authorId),
+  ]);
+
+  return {
+    appUrl,
+    currentUser: currentUser || null,
+    sortOptions: sortConfig,
+    selectedSort,
+    authors,
+    selectedAuthorId,
+    defaultCreatedAt: new Date().toISOString().slice(0, 10),
+    lukias,
   };
 }
 
@@ -220,22 +253,11 @@ app.get("/", async (req, res) => {
   delete req.session.flashMessage;
   delete req.session.flashError;
 
-  const [authors, { selectedSort, selectedAuthorId, lukias }] = await Promise.all([
-    loadAuthors(),
-    loadLukias(sort, req.session.user?.id, authorId),
-  ]);
-
   const viewModel = {
     appUrl,
     flashMessage,
     flashError,
-    currentUser: req.session.user || null,
-    sortOptions: sortConfig,
-    selectedSort,
-    authors,
-    selectedAuthorId,
-    defaultCreatedAt: new Date().toISOString().slice(0, 10),
-    lukias,
+    ...(await buildLukiaSectionData(sort, req.session.user || null, authorId)),
   };
 
   if (partial === "lukias") {
@@ -329,6 +351,18 @@ app.post("/lukias", async (req, res) => {
   }
 
   try {
+    const existing = await findExistingLukia(phrase);
+    if (existing) {
+      if (wantsJson) {
+        res.status(409).json({ ok: false, error: `That Lukia already exists as ${existing.phrase}.` });
+        return;
+      }
+
+      req.session.flashError = "That Lukia already exists.";
+      res.redirect("/");
+      return;
+    }
+
     await pool.query(
       `
       INSERT INTO lukias (phrase, author_id, created_at)
@@ -339,21 +373,10 @@ app.post("/lukias", async (req, res) => {
 
     if (wantsJson) {
       const authorId = Number.parseInt(req.body.author, 10);
-      const [authors, { selectedSort, selectedAuthorId, lukias }] = await Promise.all([
-        loadAuthors(),
-        loadLukias(req.body.sort || "recent", req.session.user.id, authorId),
-      ]);
-
-      const html = await renderView("_lukia-list", {
-        appUrl,
-        currentUser: req.session.user || null,
-        sortOptions: sortConfig,
-        selectedSort,
-        authors,
-        selectedAuthorId,
-        defaultCreatedAt: new Date().toISOString().slice(0, 10),
-        lukias,
-      });
+      const html = await renderView(
+        "_lukia-list",
+        await buildLukiaSectionData(req.body.sort || "recent", req.session.user, authorId)
+      );
 
       res.json({
         ok: true,
@@ -440,6 +463,102 @@ app.post("/ratings", async (req, res) => {
 
   req.session.flashMessage = "Rating saved.";
   res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}`);
+});
+
+app.get("/lukias/check", async (req, res) => {
+  const phrase = normalizePhrase(req.query.phrase);
+
+  if (!phrase) {
+    res.json({ ok: true, exists: false });
+    return;
+  }
+
+  const existing = await findExistingLukia(phrase);
+  res.json({
+    ok: true,
+    exists: Boolean(existing),
+    normalizedPhrase: phrase,
+    existingPhrase: existing?.phrase || null,
+  });
+});
+
+app.post("/lukias/:id/delete", async (req, res) => {
+  const wantsJson =
+    req.get("x-requested-with") === "fetch" ||
+    req.accepts(["html", "json"]) === "json";
+
+  if (!req.session.user) {
+    if (wantsJson) {
+      res.status(401).json({ ok: false, error: "Pick a name before deleting Lukias." });
+      return;
+    }
+
+    req.session.flashError = "Pick a name before deleting Lukias.";
+    res.redirect("/");
+    return;
+  }
+
+  const lukiaId = Number(req.params.id);
+  const sort = req.body.sort || "recent";
+  const authorId = Number.parseInt(req.body.author, 10);
+
+  if (!Number.isInteger(lukiaId) || lukiaId <= 0) {
+    if (wantsJson) {
+      res.status(400).json({ ok: false, error: "Invalid Lukia." });
+      return;
+    }
+
+    req.session.flashError = "Invalid Lukia.";
+    res.redirect("/");
+    return;
+  }
+
+  const existing = await pool.query(
+    "SELECT id, phrase, author_id FROM lukias WHERE id = $1",
+    [lukiaId]
+  );
+
+  if (existing.rowCount === 0) {
+    if (wantsJson) {
+      res.status(404).json({ ok: false, error: "That Lukia no longer exists." });
+      return;
+    }
+
+    req.session.flashError = "That Lukia no longer exists.";
+    res.redirect("/");
+    return;
+  }
+
+  const lukia = existing.rows[0];
+  if (lukia.author_id !== req.session.user.id) {
+    if (wantsJson) {
+      res.status(403).json({ ok: false, error: "Only the person who posted this Lukia can delete it." });
+      return;
+    }
+
+    req.session.flashError = "Only the person who posted this Lukia can delete it.";
+    res.redirect("/");
+    return;
+  }
+
+  await pool.query("DELETE FROM lukias WHERE id = $1", [lukiaId]);
+
+  if (wantsJson) {
+    const html = await renderView(
+      "_lukia-list",
+      await buildLukiaSectionData(sort, req.session.user, authorId)
+    );
+
+    res.json({
+      ok: true,
+      message: `Deleted ${lukia.phrase}`,
+      html,
+    });
+    return;
+  }
+
+  req.session.flashMessage = `Deleted ${lukia.phrase}`;
+  res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(req.body.author || "")}`);
 });
 
 app.get("/health", async (_req, res) => {

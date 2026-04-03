@@ -5,10 +5,11 @@
       <label for="sort">Sort by</label>
       <select id="sort" name="sort">
         <% Object.entries(sortOptions).forEach(([key, option]) => { %>
-          <% if (key === "unrated" && !currentUser) { return; } %>
-          <option value="<%= key %>" <%= key === selectedSort ? "selected" : "" %>>
-            <%= option.label %>
-          </option>
+          <% if (!(key === "unrated" && !currentUser)) { %>
+            <option value="<%= key %>" <%= key === selectedSort ? "selected" : "" %>>
+              <%= option.label %>
+            </option>
+          <% } %>
         <% }) %>
       </select>
       <label for="author">Author</label>
@@ -42,6 +43,14 @@
             By <strong><%= lukia.author_name %></strong>
             on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>
           </p>
+          <% if (currentUser && Number(currentUser.id) === Number(lukia.author_id)) { %>
+            <form method="post" action="/lukias/<%= lukia.id %>/delete" class="delete-form">
+              <input type="hidden" name="sort" value="<%= selectedSort %>" />
+              <input type="hidden" name="author" value="<%= selectedAuthorId || "" %>" />
+              <button type="submit" class="ghost delete-button">Delete</button>
+              <p class="delete-status" aria-live="polite"></p>
+            </form>
+          <% } %>
           <p class="rating-summary">
             Average:
             <strong data-rating-summary-value><%= lukia.average_rating === null ? "Unrated" : `${lukia.average_rating} / 5` %></strong>
