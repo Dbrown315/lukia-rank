@@ -61,6 +61,14 @@ docker compose restart app
 
 If you do not care about keeping existing data, you can instead delete `db-data/` and recreate the stack from scratch.
 
+## View the database files
+
+The `db-data/` folder on the host may look empty because PostgreSQL sets strict permissions on it. To inspect the database files safely, look from inside the container instead:
+
+```bash
+docker compose exec db ls -la /var/lib/postgresql/data
+```
+
 ## Notes for later
 
 - You can put this behind your final domain later by changing `APP_URL`.
