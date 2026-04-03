@@ -44,7 +44,7 @@ If the phrase cell only says `bowling ball`, the importer stores it as `Lukia bo
 
 ## Change the database password safely
 
-If you already have data in `db-data/`, changing `POSTGRES_PASSWORD` in `.env` is not enough by itself. The existing Postgres user inside the database must also be updated.
+If you already have data in the Docker volume, changing `POSTGRES_PASSWORD` in `.env` is not enough by itself. The existing Postgres user inside the database must also be updated.
 
 1. Update `POSTGRES_PASSWORD` in `.env`.
 2. Apply the same password inside Postgres:
@@ -59,14 +59,34 @@ docker compose exec -T db psql -U lukia -d lukiarank -c "ALTER USER lukia WITH P
 docker compose restart app
 ```
 
-If you do not care about keeping existing data, you can instead delete `db-data/` and recreate the stack from scratch.
+If you do not care about keeping existing data, you can instead recreate the stack and remove the database volume:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
 
 ## View the database files
 
-The `db-data/` folder on the host may look empty because PostgreSQL sets strict permissions on it. To inspect the database files safely, look from inside the container instead:
+PostgreSQL now stores its data in the Docker-managed `postgres-data` volume. To inspect the database files safely, look from inside the container:
 
 ```bash
 docker compose exec db ls -la /var/lib/postgresql/data
+```
+
+## Reset the database completely
+
+If you want to wipe all Lukias, users, and ratings and start fresh:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Then import your spreadsheet again:
+
+```bash
+docker compose run --rm app npm run import -- "/imports/Lukia Import.xlsx"
 ```
 
 ## Notes for later
