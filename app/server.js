@@ -171,6 +171,7 @@ app.get("/", async (req, res) => {
     selectedSort,
     authors,
     selectedAuthorId,
+    defaultCreatedAt: new Date().toISOString().slice(0, 10),
     lukias,
   });
 });

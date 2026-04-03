@@ -7,9 +7,9 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="hero">
-        <div>
+    <section class="hero-band">
+      <div class="hero-shell">
+        <div class="hero">
           <p class="eyebrow">Lukia Rank</p>
           <h1>Database of our best, worst, and most harrowing Lukias</h1>
           <p class="lede">
@@ -17,12 +17,10 @@
             score, age, or author.
           </p>
         </div>
-        <div class="hero-card">
-          <p><strong>Site URL</strong></p>
-          <p><%= appUrl %></p>
-          <p class="muted">Swap this for your final domain later without changing the app.</p>
-        </div>
-      </section>
+      </div>
+    </section>
+
+    <main class="shell">
 
       <% if (flashMessage) { %>
         <p class="flash success"><%= flashMessage %></p>
@@ -42,7 +40,7 @@
           <% } else { %>
             <form method="post" action="/login" class="stack">
               <label for="name">Your name</label>
-              <input id="name" name="name" type="text" maxlength="40" placeholder="Lukia cheese" required />
+              <input id="name" name="name" type="text" maxlength="40" placeholder="Name" required />
               <button type="submit">Enter</button>
             </form>
           <% } %>
@@ -54,7 +52,7 @@
             <label for="phrase">Phrase</label>
             <input id="phrase" name="phrase" type="text" maxlength="140" placeholder="bowling ball" required />
             <label for="created_at">Date</label>
-            <input id="created_at" name="created_at" type="date" />
+            <input id="created_at" name="created_at" type="date" value="<%= defaultCreatedAt %>" />
             <button type="submit">Post Lukia</button>
           </form>
           <p class="muted">You can type either “bowling ball” or the full “Lukia bowling ball”.</p>
