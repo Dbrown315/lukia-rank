@@ -5,6 +5,7 @@
       <label for="sort">Sort by</label>
       <select id="sort" name="sort">
         <% Object.entries(sortOptions).forEach(([key, option]) => { %>
+          <% if (key === "unrated" && !currentUser) { return; } %>
           <option value="<%= key %>" <%= key === selectedSort ? "selected" : "" %>>
             <%= option.label %>
           </option>

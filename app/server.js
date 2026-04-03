@@ -37,6 +37,10 @@ const sortConfig = {
     label: "Oldest",
     orderBy: "l.created_at ASC, l.id ASC",
   },
+  unrated: {
+    label: "Unrated By Me",
+    orderBy: "l.created_at DESC, l.id DESC",
+  },
 };
 
 app.set("view engine", "ejs");
@@ -126,12 +130,26 @@ async function loadLukias(sortKey, currentUserId, authorId) {
   const selectedSort = sortConfig[sortKey] ? sortKey : "recent";
   const selectedAuthorId = Number.isInteger(authorId) && authorId > 0 ? authorId : null;
   const params = [currentUserId || 0];
-  let whereClause = "";
+  const whereParts = [];
+
+  if (selectedSort === "unrated") {
+    if (currentUserId) {
+      whereParts.push(`NOT EXISTS (
+        SELECT 1
+        FROM ratings r_self
+        WHERE r_self.lukia_id = l.id AND r_self.user_id = $1
+      )`);
+    } else {
+      whereParts.push("1 = 0");
+    }
+  }
 
   if (selectedAuthorId) {
     params.push(selectedAuthorId);
-    whereClause = `WHERE l.author_id = $${params.length}`;
+    whereParts.push(`l.author_id = $${params.length}`);
   }
+
+  const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
   const query = `
     SELECT
@@ -211,6 +229,7 @@ app.get("/", async (req, res) => {
     appUrl,
     flashMessage,
     flashError,
+    currentUser: req.session.user || null,
     sortOptions: sortConfig,
     selectedSort,
     authors,
@@ -327,6 +346,7 @@ app.post("/lukias", async (req, res) => {
 
       const html = await renderView("_lukia-list", {
         appUrl,
+        currentUser: req.session.user || null,
         sortOptions: sortConfig,
         selectedSort,
         authors,
