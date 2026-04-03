@@ -16,7 +16,7 @@ Simple Dockerized website for posting, browsing, sorting, and rating Lukias.
 docker compose up -d --build
 ```
 
-Visit `http://192.168.4.27:3001` for now, or whatever you set in `APP_URL`.
+Visit the URL you set in `APP_URL`. For example, if you are using Tailscale Funnel, that will be something like `https://your-device.your-tailnet.ts.net`.
 
 ## Import your spreadsheet
 
@@ -93,3 +93,46 @@ docker compose run --rm app npm run import -- "/imports/Lukia Import.xlsx"
 
 - You can put this behind your final domain later by changing `APP_URL`.
 - We can add a reverse proxy and lock down Pi/firewall rules once the app itself is in place.
+
+## Expose it with Tailscale Funnel
+
+If this machine is logged into your tailnet and allowed to use Funnel, you can publish the app without opening router ports.
+
+1. Start the app:
+
+```bash
+docker compose up -d --build
+```
+
+2. Start the Tailscale daemon on the host if it is not already running:
+
+```bash
+sudo systemctl start tailscaled
+```
+
+3. Sign in to Tailscale on the host if needed:
+
+```bash
+sudo tailscale up
+```
+
+4. Check your device's Tailscale HTTPS name:
+
+```bash
+tailscale status
+tailscale cert <your-device-name>.<your-tailnet>.ts.net
+```
+
+5. Change `APP_URL` in `.env` to your HTTPS `ts.net` URL, then restart the app:
+
+```bash
+docker compose restart app
+```
+
+6. Publish the app's host port:
+
+```bash
+sudo tailscale funnel 3001
+```
+
+After that, your site should be reachable at the `https://<device>.<tailnet>.ts.net` address shown by Tailscale.

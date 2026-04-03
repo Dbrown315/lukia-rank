@@ -6,6 +6,13 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const appUrl = process.env.APP_URL || `http://localhost:${port}`;
 const sessionSecret = process.env.SESSION_SECRET;
+const appUrlProtocol = (() => {
+  try {
+    return new URL(appUrl).protocol;
+  } catch {
+    return "http:";
+  }
+})();
 
 if (!sessionSecret) {
   throw new Error("SESSION_SECRET is required");
@@ -34,6 +41,7 @@ const sortConfig = {
 
 app.set("view engine", "ejs");
 app.set("views", `${__dirname}/views`);
+app.set("trust proxy", 1);
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.static(`${__dirname}/public`));
@@ -45,7 +53,7 @@ app.use(
     cookie: {
       httpOnly: true,
       sameSite: "lax",
-      secure: false,
+      secure: appUrlProtocol === "https:" ? "auto" : false,
       maxAge: 1000 * 60 * 60 * 24 * 30,
     },
   })
