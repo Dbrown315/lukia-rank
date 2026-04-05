@@ -44,10 +44,10 @@
 
   <div class="lukia-list">
     <% lukias.forEach((lukia, index) => { %>
-      <article class="lukia-card lukia-card-link" data-detail-url="/lukias/<%= lukia.id %>">
+      <article class="lukia-card lukia-card-link" data-detail-url="/lukias/<%= lukia.id %>?return_to=<%= encodeURIComponent(currentListUrl) %>">
         <div class="rank-badge">#<%= index + 1 %></div>
         <div class="lukia-copy">
-          <h3><a class="lukia-link" href="/lukias/<%= lukia.id %>"><%= lukia.phrase %></a></h3>
+          <h3><a class="lukia-link" href="/lukias/<%= lukia.id %>?return_to=<%= encodeURIComponent(currentListUrl) %>"><%= lukia.phrase %></a></h3>
           <p>
             By <strong><%= lukia.author_name %></strong>
             on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>

@@ -18,7 +18,7 @@
             on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>
           </p>
           <p class="detail-rank">All-time best rank: <strong>#<%= lukia.best_rank %></strong></p>
-          <p><a class="back-link" href="/">Back to all Lukias</a></p>
+          <p><a class="back-link" href="<%= returnTo %>">Back to all Lukias</a></p>
         </div>
       </div>
     </section>

@@ -229,6 +229,22 @@ async function findExistingLukia(phrase) {
   return result.rows[0] || null;
 }
 
+function buildListUrl(sort, authorId, age) {
+  const params = new URLSearchParams();
+  const selectedSort = sortConfig[sort] ? sort : "recent";
+  const selectedAge = ageConfig[age] ? age : "all";
+
+  params.set("sort", selectedSort);
+  if (Number.isInteger(authorId) && authorId > 0) {
+    params.set("author", String(authorId));
+  }
+  if (selectedAge !== "all") {
+    params.set("age", selectedAge);
+  }
+
+  return `/?${params.toString()}`;
+}
+
 async function buildLukiaSectionData(sort, currentUser, authorId, age) {
   // The list section is rendered both for full page loads and for AJAX refreshes.
   const [authors, { selectedSort, selectedAuthorId, selectedAge, lukias }] = await Promise.all([
@@ -245,6 +261,7 @@ async function buildLukiaSectionData(sort, currentUser, authorId, age) {
     authors,
     selectedAuthorId,
     selectedAge,
+    currentListUrl: buildListUrl(selectedSort, selectedAuthorId, selectedAge),
     defaultCreatedAt: new Date().toISOString().slice(0, 10),
     lukias,
   };
@@ -412,6 +429,11 @@ app.get("/lukias/:id", async (req, res) => {
     return;
   }
 
+  const returnTo =
+    typeof req.query.return_to === "string" && req.query.return_to.startsWith("/")
+      ? req.query.return_to
+      : "/";
+
   res.render("lukia-detail", {
     currentUser: req.session.user || null,
     flashMessage,
@@ -419,6 +441,7 @@ app.get("/lukias/:id", async (req, res) => {
     lukia,
     comments,
     commentCount: countComments(comments),
+    returnTo,
   });
 });
 
