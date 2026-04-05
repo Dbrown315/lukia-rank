@@ -6,6 +6,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const appUrl = process.env.APP_URL || `http://localhost:${port}`;
 const sessionSecret = process.env.SESSION_SECRET;
+// Session cookies need different secure behavior when the app sits behind HTTPS later.
 const appUrlProtocol = (() => {
   try {
     return new URL(appUrl).protocol;
@@ -156,6 +157,7 @@ async function loadLukias(sortKey, currentUserId, authorId, ageKey) {
   const params = [currentUserId || 0];
   const whereParts = [];
 
+  // "Unrated By Me" is computed per logged-in user rather than from the global rating average.
   if (selectedSort === "unrated") {
     if (currentUserId) {
       whereParts.push(`NOT EXISTS (
@@ -178,6 +180,7 @@ async function loadLukias(sortKey, currentUserId, authorId, ageKey) {
     whereParts.push(`l.created_at >= NOW() - $${params.length}::interval`);
   }
 
+  // Build the WHERE clause incrementally so sort, author, and age filters can combine freely.
   const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
 
   const query = `
@@ -222,6 +225,7 @@ async function findExistingLukia(phrase) {
 }
 
 async function buildLukiaSectionData(sort, currentUser, authorId, age) {
+  // The list section is rendered both for full page loads and for AJAX refreshes.
   const [authors, { selectedSort, selectedAuthorId, selectedAge, lukias }] = await Promise.all([
     loadAuthors(),
     loadLukias(sort, currentUser?.id, authorId, age),
@@ -264,6 +268,7 @@ async function getLukiaRatingSummary(lukiaId, currentUserId) {
 }
 
 function renderView(viewName, data) {
+  // EJS rendering is callback-based; wrap it so route handlers can stay async/await.
   return new Promise((resolve, reject) => {
     app.render(viewName, data, (error, html) => {
       if (error) {
@@ -293,6 +298,7 @@ app.get("/", async (req, res) => {
     ...(await buildLukiaSectionData(sort, req.session.user || null, authorId, age)),
   };
 
+  // The frontend can ask for only the list section to avoid a full page reload.
   if (partial === "lukias") {
     res.render("_lukia-list", viewModel);
     return;
@@ -385,6 +391,7 @@ app.post("/lukias", async (req, res) => {
 
   try {
     const existing = await findExistingLukia(phrase);
+    // Use the same normalized phrase check as the UI warning so server and client agree.
     if (existing) {
       if (wantsJson) {
         res.status(409).json({ ok: false, error: `That Lukia already exists as ${existing.phrase}.` });
@@ -406,6 +413,7 @@ app.post("/lukias", async (req, res) => {
 
     if (wantsJson) {
       const authorId = Number.parseInt(req.body.author, 10);
+      // Return a freshly rendered list section so the browser can swap it in-place.
       const html = await renderView(
         "_lukia-list",
         await buildLukiaSectionData(
@@ -507,6 +515,7 @@ app.post("/ratings", async (req, res) => {
 app.get("/lukias/check", async (req, res) => {
   const phrase = normalizePhrase(req.query.phrase);
 
+  // This powers the inline duplicate warning while the user types.
   if (!phrase) {
     res.json({ ok: true, exists: false });
     return;
@@ -570,6 +579,7 @@ app.post("/lukias/:id/delete", async (req, res) => {
   }
 
   const lukia = existing.rows[0];
+  // Keep deletion ownership simple: only the original poster can remove the entry.
   if (lukia.author_id !== req.session.user.id) {
     if (wantsJson) {
       res.status(403).json({ ok: false, error: "Only the person who posted this Lukia can delete it." });

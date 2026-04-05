@@ -9,6 +9,7 @@ if (!connectionString) {
 const pool = new Pool({ connectionString });
 
 async function migrate() {
+  // Keep schema setup in-app so a fresh container can bootstrap itself.
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,

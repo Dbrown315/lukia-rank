@@ -3,6 +3,7 @@ function toFormBody(form) {
 }
 
 async function fetchJson(url, options) {
+  // Centralize JSON error handling so each form handler can stay focused on UI updates.
   const response = await fetch(url, options);
   const payload = await response.json();
 
@@ -55,6 +56,7 @@ async function refreshLukiaSection(searchParams, statusMessage) {
   const newParams = new URLSearchParams(searchParams);
   updateHistory(newParams);
 
+  // The list HTML gets replaced wholesale, so we must rebind all event handlers afterward.
   bindDynamicHandlers();
   syncSortControlsWithUrl();
 
@@ -64,12 +66,14 @@ async function refreshLukiaSection(searchParams, statusMessage) {
 }
 
 function updateHistory(searchParams) {
+  // Keep the URL aligned with the visible filters so refresh/back behaves predictably.
   const nextUrl = new URL(window.location.href);
   nextUrl.search = searchParams.toString();
   window.history.replaceState({}, "", nextUrl);
 }
 
 function syncSortControlsWithUrl() {
+  // Some browsers restore <select> state aggressively on refresh, so force it from the URL.
   const params = new URLSearchParams(window.location.search);
   const sort = params.get("sort") || "recent";
   const author = params.get("author") || "";
@@ -126,6 +130,7 @@ async function handleLoginSubmit(event) {
       `;
     }
 
+    // Login changes which controls/cards are visible, so refresh the list section too.
     const params = new URLSearchParams(window.location.search);
     await refreshLukiaSection(params, "Updated for your login.");
   } catch (error) {
@@ -190,6 +195,7 @@ async function handlePostSubmit(event) {
     postForm.reset();
     const dateInput = document.querySelector("#created_at");
     if (dateInput) {
+      // Preserve the "default to today" behavior after an async post reset.
       dateInput.value = new Date().toISOString().slice(0, 10);
     }
 
@@ -298,6 +304,7 @@ async function checkDuplicatePhrase() {
       return;
     }
 
+    // Echo back the normalized phrase so the user sees the exact stored format.
     setStatus(phraseStatus, `Will post as ${payload.normalizedPhrase}.`, "success");
     if (postButton) {
       postButton.disabled = false;
@@ -377,6 +384,7 @@ async function handleSortChange(event) {
 }
 
 function bindDynamicHandlers() {
+  // Partial list refreshes replace the DOM, so use idempotent binding guards everywhere.
   for (const form of document.querySelectorAll(".rating-form")) {
     if (form.dataset.bound === "true") {
       continue;
