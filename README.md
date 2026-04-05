@@ -32,6 +32,67 @@ If you want to target a specific file:
 docker compose run --rm app npm run import -- /imports/your-file.xlsx
 ```
 
+## Back up the database
+
+For normal protection against a lost Docker volume, use PostgreSQL dumps instead of re-importing spreadsheets.
+
+Create a backup on demand:
+
+```bash
+./scripts/backup-db.sh
+```
+
+That writes a PostgreSQL custom-format dump into the local `backups/` folder on the Pi, using filenames like:
+
+```text
+backups/lukiarank_2026-04-05_02-00-00.dump
+```
+
+Backups older than 30 days are deleted automatically. To keep a different number of days:
+
+```bash
+BACKUP_RETENTION_DAYS=14 ./scripts/backup-db.sh
+```
+
+If you want the dev stack instead of the main one:
+
+```bash
+./scripts/backup-db.sh --dev
+```
+
+## Restore from a backup
+
+If you ever lose the Docker volume, bring the stack back up so Postgres is running, then restore one of the dumps:
+
+```bash
+docker compose up -d
+./scripts/restore-db.sh lukiarank_2026-04-05_02-00-00.dump
+```
+
+You can also pass a full path:
+
+```bash
+./scripts/restore-db.sh /data/srv/lukia-rank/backups/lukiarank_2026-04-05_02-00-00.dump
+```
+
+The restore script temporarily stops the app container, restores the database, then starts the app again.
+
+## Nightly backups on the Pi
+
+To run a backup every night at 2:00 AM, edit the host crontab:
+
+```bash
+crontab -e
+```
+
+Add:
+
+```cron
+0 2 * * * cd /data/srv/lukia-rank && /bin/bash ./scripts/backup-db.sh >> /data/srv/lukia-rank/backups/backup.log 2>&1
+```
+
+That schedule means 2:00 AM every day on the Raspberry Pi host. If you want the dev stack instead, use `./scripts/backup-db.sh --dev`.
+
 ## Expected import columns
 
 The importer looks for columns like:

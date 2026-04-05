@@ -5,6 +5,8 @@
 # Local runtime data
 db-data/
 import/
+backups/*
+!backups/.gitkeep
 
 # Local tooling state
 .codex
@@ -23,3 +25,5 @@ Thumbs.db
 # Dev stuff
 *.sh
 *.dev*
+!scripts/
+!scripts/*.sh
