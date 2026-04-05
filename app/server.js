@@ -190,6 +190,11 @@ async function loadLukias(sortKey, currentUserId, authorId, ageKey) {
       l.author_id,
       l.created_at,
       u.name AS author_name,
+      (
+        SELECT COUNT(*)
+        FROM comments c
+        WHERE c.lukia_id = l.id
+      )::int AS comment_count,
       ROUND(AVG(r.rating)::numeric, 2) AS average_rating,
       COUNT(r.id)::int AS rating_count,
       MAX(CASE WHEN r.user_id = $1 THEN r.rating END) AS user_rating

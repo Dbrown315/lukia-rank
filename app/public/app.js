@@ -95,6 +95,23 @@ function syncSortControlsWithUrl() {
   }
 }
 
+function renderAverageSummary(summaryContainer, summary) {
+  if (!summaryContainer) {
+    return;
+  }
+
+  const count = Number(summary.rating_count) || 0;
+  const userRating = Number(summary.user_rating);
+  if (count <= 0 || summary.average_rating === null || !Number.isInteger(userRating) || userRating <= 0) {
+    summaryContainer.innerHTML = "";
+    return;
+  }
+
+  summaryContainer.innerHTML = `Average:
+    <strong data-rating-summary-value>${summary.average_rating} / 5</strong>
+    <span data-rating-summary-count>from ${count} rating${count === 1 ? "" : "s"}</span>`;
+}
+
 async function handleLoginSubmit(event) {
   event.preventDefault();
 
@@ -322,6 +339,7 @@ async function handleRatingSubmit(event) {
 
   const form = event.currentTarget;
   const status = form.querySelector(".rating-status");
+  const summaryContainer = form.closest(".lukia-card")?.querySelector("[data-rating-summary]");
   const summaryValue = form.closest(".lukia-card")?.querySelector("[data-rating-summary-value]");
   const summaryCount = form.closest(".lukia-card")?.querySelector("[data-rating-summary-count]");
   const ratedIndicator = form.closest(".lukia-card")?.querySelector(".rated-indicator");
@@ -343,7 +361,9 @@ async function handleRatingSubmit(event) {
       body: toFormBody(form),
     });
 
-    if (summaryValue) {
+    if (summaryContainer) {
+      renderAverageSummary(summaryContainer, payload.summary);
+    } else if (summaryValue) {
       summaryValue.textContent =
         payload.summary.average_rating === null ? "Unrated" : `${payload.summary.average_rating} / 5`;
     }
@@ -384,6 +404,28 @@ async function handleSortChange(event) {
 }
 
 function bindDynamicHandlers() {
+  for (const card of document.querySelectorAll(".lukia-card-link")) {
+    if (card.dataset.clickBound === "true") {
+      continue;
+    }
+
+    card.dataset.clickBound = "true";
+    card.addEventListener("click", (event) => {
+      if (
+        event.target.closest(
+          "a, button, form, select, input, textarea, label, summary, details"
+        )
+      ) {
+        return;
+      }
+
+      const url = card.dataset.detailUrl;
+      if (url) {
+        window.location.href = url;
+      }
+    });
+  }
+
   // Partial list refreshes replace the DOM, so use idempotent binding guards everywhere.
   for (const form of document.querySelectorAll(".rating-form")) {
     if (form.dataset.bound === "true") {
