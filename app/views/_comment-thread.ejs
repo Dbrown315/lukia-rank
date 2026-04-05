@@ -1,0 +1,27 @@
+<article class="comment-card" id="comment-<%= comment.id %>">
+  <p class="comment-meta">
+    <strong><%= comment.author_name %></strong>
+    commented on <%= new Date(comment.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>
+  </p>
+  <p class="comment-body"><%= comment.body %></p>
+
+  <% if (currentUser) { %>
+    <details class="reply-box">
+      <summary>Reply</summary>
+      <form method="post" action="/lukias/<%= lukia.id %>/comments" class="stack">
+        <input type="hidden" name="parent_id" value="<%= comment.id %>" />
+        <label for="reply-<%= comment.id %>">Your reply</label>
+        <textarea id="reply-<%= comment.id %>" name="body" rows="3" maxlength="1200" required></textarea>
+        <button type="submit">Post Reply</button>
+      </form>
+    </details>
+  <% } %>
+
+  <% if (comment.children.length > 0) { %>
+    <div class="comment-children">
+      <% comment.children.forEach((child) => { %>
+        <%- include("_comment-thread", { comment: child, currentUser, lukia }) %>
+      <% }) %>
+    </div>
+  <% } %>
+</article>

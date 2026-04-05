@@ -280,7 +280,7 @@ async function checkDuplicatePhrase() {
   }
 
   try {
-    const url = new URL("/lukias/check", window.location.origin);
+    const url = new URL("/api/lukias/check", window.location.origin);
     url.searchParams.set("phrase", rawPhrase);
 
     const response = await fetch(url, {

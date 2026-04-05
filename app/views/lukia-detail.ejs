@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title><%= lukia.phrase %> | Lukia Rank</title>
+    <link rel="stylesheet" href="/styles.css" />
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <section class="hero-band hero-band-small">
+      <div class="hero-shell">
+        <div class="hero">
+          <p class="eyebrow">Lukia Rank</p>
+          <h1><%= lukia.phrase %></h1>
+          <p class="lede">
+            By <strong><%= lukia.author_name %></strong>
+            on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>
+          </p>
+          <p class="detail-rank">All-time best rank: <strong>#<%= lukia.best_rank %></strong></p>
+          <p><a class="back-link" href="/">Back to all Lukias</a></p>
+        </div>
+      </div>
+    </section>
+
+    <main class="shell detail-shell">
+      <% if (flashMessage) { %>
+        <p class="flash success"><%= flashMessage %></p>
+      <% } %>
+      <% if (flashError) { %>
+        <p class="flash error"><%= flashError %></p>
+      <% } %>
+
+      <section class="detail-grid">
+        <article class="panel stack">
+          <h2>Rating</h2>
+          <p class="rating-summary">
+            Average:
+            <strong data-rating-summary-value><%= lukia.average_rating === null ? "Unrated" : `${lukia.average_rating} / 5` %></strong>
+            <span data-rating-summary-count>
+              <% if (lukia.rating_count > 0) { %>
+                from <%= lukia.rating_count %> rating<%= lukia.rating_count === 1 ? "" : "s" %>
+              <% } %>
+            </span>
+          </p>
+
+          <form method="post" action="/ratings" class="rating-form detail-rating-form">
+            <input type="hidden" name="lukia_id" value="<%= lukia.id %>" />
+            <input type="hidden" name="sort" value="best" />
+            <input type="hidden" name="author" value="" />
+            <input type="hidden" name="age" value="all" />
+            <label for="detail-rating">Your rating</label>
+            <p class="rated-indicator">
+              <% if (lukia.user_rating === null || lukia.user_rating === undefined) { %>
+                You have not rated this yet.
+              <% } else { %>
+                You rated this <strong><%= lukia.user_rating %>/5</strong>.
+              <% } %>
+            </p>
+            <div class="rating-row">
+              <select id="detail-rating" name="rating">
+                <% for (let i = 1; i <= 5; i += 1) { %>
+                  <option value="<%= i %>" <%= Number(lukia.user_rating) === i ? "selected" : "" %>>
+                    <%= i %> star<%= i === 1 ? "" : "s" %>
+                  </option>
+                <% } %>
+              </select>
+              <button type="submit">Save</button>
+            </div>
+            <p class="rating-status" aria-live="polite"></p>
+          </form>
+        </article>
+
+        <section class="panel stack">
+          <div class="comment-header">
+            <h2>Comments</h2>
+            <p class="muted"><%= commentCount %> comment<%= commentCount === 1 ? "" : "s" %></p>
+          </div>
+
+          <% if (currentUser) { %>
+            <form method="post" action="/lukias/<%= lukia.id %>/comments" class="stack">
+              <label for="comment-body">Add a comment</label>
+              <textarea id="comment-body" name="body" rows="4" maxlength="1200" required></textarea>
+              <button type="submit">Post Comment</button>
+            </form>
+          <% } else { %>
+            <p class="muted">Pick a name on the main page before posting comments.</p>
+          <% } %>
+
+          <% if (comments.length === 0) { %>
+            <p class="muted">No comments yet. Start the thread.</p>
+          <% } %>
+
+          <div class="comment-list">
+            <% comments.forEach((comment) => { %>
+              <%- include("_comment-thread", { comment, currentUser, lukia }) %>
+            <% }) %>
+          </div>
+        </section>
+      </section>
+    </main>
+  </body>
+  </html>

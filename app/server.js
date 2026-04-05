@@ -267,6 +267,84 @@ async function getLukiaRatingSummary(lukiaId, currentUserId) {
   };
 }
 
+async function getLukiaDetail(lukiaId, currentUserId) {
+  const result = await pool.query(
+    `
+    WITH ranked_lukias AS (
+      SELECT
+        l.id,
+        ROW_NUMBER() OVER (
+          ORDER BY
+            ROUND(AVG(r.rating)::numeric, 2) DESC NULLS LAST,
+            COUNT(r.id)::int DESC,
+            l.created_at DESC,
+            l.id DESC
+        ) AS best_rank
+      FROM lukias l
+      LEFT JOIN ratings r ON r.lukia_id = l.id
+      GROUP BY l.id
+    )
+    SELECT
+      l.id,
+      l.phrase,
+      l.author_id,
+      l.created_at,
+      u.name AS author_name,
+      ROUND(AVG(r.rating)::numeric, 2) AS average_rating,
+      COUNT(r.id)::int AS rating_count,
+      MAX(CASE WHEN r.user_id = $2 THEN r.rating END) AS user_rating,
+      ranked_lukias.best_rank
+    FROM lukias l
+    JOIN users u ON u.id = l.author_id
+    LEFT JOIN ratings r ON r.lukia_id = l.id
+    JOIN ranked_lukias ON ranked_lukias.id = l.id
+    WHERE l.id = $1
+    GROUP BY l.id, u.name, ranked_lukias.best_rank
+    `,
+    [lukiaId, currentUserId || 0]
+  );
+
+  return result.rows[0] || null;
+}
+
+function buildCommentTree(flatComments) {
+  const byId = new Map();
+  for (const comment of flatComments) {
+    byId.set(comment.id, { ...comment, children: [] });
+  }
+
+  const roots = [];
+  for (const comment of byId.values()) {
+    if (comment.parent_id && byId.has(comment.parent_id)) {
+      byId.get(comment.parent_id).children.push(comment);
+    } else {
+      roots.push(comment);
+    }
+  }
+
+  return roots;
+}
+
+async function loadCommentTree(lukiaId) {
+  const result = await pool.query(
+    `
+    SELECT
+      c.id,
+      c.parent_id,
+      c.body,
+      c.created_at,
+      u.name AS author_name
+    FROM comments c
+    JOIN users u ON u.id = c.user_id
+    WHERE c.lukia_id = $1
+    ORDER BY c.created_at ASC, c.id ASC
+    `,
+    [lukiaId]
+  );
+
+  return buildCommentTree(result.rows);
+}
+
 function renderView(viewName, data) {
   // EJS rendering is callback-based; wrap it so route handlers can stay async/await.
   return new Promise((resolve, reject) => {
@@ -305,6 +383,38 @@ app.get("/", async (req, res) => {
   }
 
   res.render("index", viewModel);
+});
+
+app.get("/lukias/:id", async (req, res) => {
+  const lukiaId = Number(req.params.id);
+  if (!Number.isInteger(lukiaId) || lukiaId <= 0) {
+    res.status(404).send("Lukia not found.");
+    return;
+  }
+
+  const flashMessage = req.session.flashMessage || null;
+  const flashError = req.session.flashError || null;
+  delete req.session.flashMessage;
+  delete req.session.flashError;
+
+  const [lukia, comments] = await Promise.all([
+    getLukiaDetail(lukiaId, req.session.user?.id),
+    loadCommentTree(lukiaId),
+  ]);
+
+  if (!lukia) {
+    res.status(404).send("Lukia not found.");
+    return;
+  }
+
+  res.render("lukia-detail", {
+    currentUser: req.session.user || null,
+    flashMessage,
+    flashError,
+    lukia,
+    comments,
+    commentCount: countComments(comments),
+  });
 });
 
 app.post("/login", async (req, res) => {
@@ -475,6 +585,7 @@ app.post("/ratings", async (req, res) => {
   const sort = req.body.sort || "recent";
   const author = req.body.author || "";
   const age = req.body.age || "all";
+  const returnTo = String(req.body.return_to || "").trim();
 
   if (!Number.isInteger(lukiaId) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     if (wantsJson) {
@@ -483,6 +594,10 @@ app.post("/ratings", async (req, res) => {
     }
 
     req.session.flashError = "Ratings must be between 1 and 5.";
+    if (returnTo) {
+      res.redirect(returnTo);
+      return;
+    }
     res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}&age=${encodeURIComponent(age)}`);
     return;
   }
@@ -509,10 +624,14 @@ app.post("/ratings", async (req, res) => {
   }
 
   req.session.flashMessage = "Rating saved.";
+  if (returnTo) {
+    res.redirect(returnTo);
+    return;
+  }
   res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}&age=${encodeURIComponent(age)}`);
 });
 
-app.get("/lukias/check", async (req, res) => {
+app.get("/api/lukias/check", async (req, res) => {
   const phrase = normalizePhrase(req.query.phrase);
 
   // This powers the inline duplicate warning while the user types.
@@ -609,6 +728,62 @@ app.post("/lukias/:id/delete", async (req, res) => {
 
   req.session.flashMessage = `Deleted ${lukia.phrase}`;
   res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(req.body.author || "")}&age=${encodeURIComponent(age)}`);
+});
+
+function countComments(comments) {
+  let count = 0;
+  for (const comment of comments) {
+    count += 1 + countComments(comment.children);
+  }
+  return count;
+}
+
+app.post("/lukias/:id/comments", async (req, res) => {
+  const lukiaId = Number(req.params.id);
+  const parentId = req.body.parent_id ? Number(req.body.parent_id) : null;
+  const body = String(req.body.body || "").trim().slice(0, 1200);
+
+  if (!req.session.user) {
+    req.session.flashError = "Pick a name before posting comments.";
+    res.redirect(`/lukias/${lukiaId}`);
+    return;
+  }
+
+  if (!Number.isInteger(lukiaId) || lukiaId <= 0) {
+    res.status(404).send("Lukia not found.");
+    return;
+  }
+
+  if (!body) {
+    req.session.flashError = "Please enter a comment.";
+    res.redirect(`/lukias/${lukiaId}`);
+    return;
+  }
+
+  if (parentId !== null) {
+    const parentResult = await pool.query(
+      "SELECT id FROM comments WHERE id = $1 AND lukia_id = $2",
+      [parentId, lukiaId]
+    );
+
+    if (parentResult.rowCount === 0) {
+      req.session.flashError = "That reply target no longer exists.";
+      res.redirect(`/lukias/${lukiaId}`);
+      return;
+    }
+  }
+
+  const insertResult = await pool.query(
+    `
+    INSERT INTO comments (lukia_id, user_id, parent_id, body)
+    VALUES ($1, $2, $3, $4)
+    RETURNING id
+    `,
+    [lukiaId, req.session.user.id, parentId, body]
+  );
+
+  req.session.flashMessage = parentId ? "Reply posted." : "Comment posted.";
+  res.redirect(`/lukias/${lukiaId}#comment-${insertResult.rows[0].id}`);
 });
 
 app.get("/health", async (_req, res) => {

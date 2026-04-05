@@ -47,7 +47,7 @@
       <article class="lukia-card">
         <div class="rank-badge">#<%= index + 1 %></div>
         <div class="lukia-copy">
-          <h3><%= lukia.phrase %></h3>
+          <h3><a class="lukia-link" href="/lukias/<%= lukia.id %>"><%= lukia.phrase %></a></h3>
           <p>
             By <strong><%= lukia.author_name %></strong>
             on <%= new Date(lukia.created_at).toLocaleDateString("en-GB", { dateStyle: "medium" }) %>

@@ -34,6 +34,15 @@ async function migrate() {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (lukia_id, user_id)
     );
+
+    CREATE TABLE IF NOT EXISTS comments (
+      id SERIAL PRIMARY KEY,
+      lukia_id INTEGER NOT NULL REFERENCES lukias(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      parent_id INTEGER REFERENCES comments(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
   `);
 }
 

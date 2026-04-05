@@ -45,6 +45,10 @@ select {
   border-bottom: 1px solid rgba(183, 213, 235, 0.75);
 }
 
+.hero-band-small {
+  padding-bottom: 1.4rem;
+}
+
 .hero-shell {
   width: min(1100px, calc(100% - 2rem));
   margin: 0 auto;
@@ -137,6 +141,15 @@ h1 {
   grid-template-columns: auto 1.8fr 1fr;
   gap: 1rem;
   padding: 1rem 1.15rem;
+}
+
+.lukia-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.lukia-link:hover {
+  text-decoration: underline;
 }
 
 .rank-badge {
@@ -263,6 +276,84 @@ button.ghost {
   padding-inline: 0.95rem;
 }
 
+.detail-shell {
+  padding-top: 1.2rem;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: minmax(250px, 320px) minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.detail-rank {
+  color: var(--accent-dark);
+  font-size: 1.05rem;
+}
+
+.back-link {
+  color: var(--accent-dark);
+}
+
+.detail-rating-form {
+  align-content: start;
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: baseline;
+}
+
+.comment-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.comment-card {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.comment-meta {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.comment-body {
+  white-space: pre-wrap;
+  margin-bottom: 0.8rem;
+}
+
+.comment-children {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 0.9rem;
+  margin-left: 1.1rem;
+  padding-left: 1rem;
+  border-left: 2px solid var(--line);
+}
+
+.reply-box summary {
+  cursor: pointer;
+  color: var(--accent-dark);
+  margin-bottom: 0.7rem;
+}
+
+textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 0.8rem 0.9rem;
+  font: inherit;
+  resize: vertical;
+}
+
 .rating-status[data-state="success"] {
   color: var(--accent-dark);
 }
@@ -294,6 +385,7 @@ button.ghost {
 
 @media (max-width: 800px) {
   .grid,
+  .detail-grid,
   .lukia-card {
     grid-template-columns: 1fr;
   }
