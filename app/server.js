@@ -43,6 +43,29 @@ const sortConfig = {
   },
 };
 
+const ageConfig = {
+  week: {
+    label: "Week",
+    interval: "7 days",
+  },
+  month: {
+    label: "Month",
+    interval: "1 month",
+  },
+  sixMonths: {
+    label: "6 Months",
+    interval: "6 months",
+  },
+  year: {
+    label: "Year",
+    interval: "1 year",
+  },
+  all: {
+    label: "All Time",
+    interval: null,
+  },
+};
+
 app.set("view engine", "ejs");
 app.set("views", `${__dirname}/views`);
 app.set("trust proxy", 1);
@@ -126,9 +149,10 @@ async function loadAuthors() {
   return result.rows;
 }
 
-async function loadLukias(sortKey, currentUserId, authorId) {
+async function loadLukias(sortKey, currentUserId, authorId, ageKey) {
   const selectedSort = sortConfig[sortKey] ? sortKey : "recent";
   const selectedAuthorId = Number.isInteger(authorId) && authorId > 0 ? authorId : null;
+  const selectedAge = ageConfig[ageKey] ? ageKey : "all";
   const params = [currentUserId || 0];
   const whereParts = [];
 
@@ -147,6 +171,11 @@ async function loadLukias(sortKey, currentUserId, authorId) {
   if (selectedAuthorId) {
     params.push(selectedAuthorId);
     whereParts.push(`l.author_id = $${params.length}`);
+  }
+
+  if (selectedAge !== "all") {
+    params.push(ageConfig[selectedAge].interval);
+    whereParts.push(`l.created_at >= NOW() - $${params.length}::interval`);
   }
 
   const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(" AND ")}` : "";
@@ -173,6 +202,7 @@ async function loadLukias(sortKey, currentUserId, authorId) {
   return {
     selectedSort,
     selectedAuthorId,
+    selectedAge,
     lukias: result.rows,
   };
 }
@@ -191,19 +221,21 @@ async function findExistingLukia(phrase) {
   return result.rows[0] || null;
 }
 
-async function buildLukiaSectionData(sort, currentUser, authorId) {
-  const [authors, { selectedSort, selectedAuthorId, lukias }] = await Promise.all([
+async function buildLukiaSectionData(sort, currentUser, authorId, age) {
+  const [authors, { selectedSort, selectedAuthorId, selectedAge, lukias }] = await Promise.all([
     loadAuthors(),
-    loadLukias(sort, currentUser?.id, authorId),
+    loadLukias(sort, currentUser?.id, authorId, age),
   ]);
 
   return {
     appUrl,
     currentUser: currentUser || null,
     sortOptions: sortConfig,
+    ageOptions: ageConfig,
     selectedSort,
     authors,
     selectedAuthorId,
+    selectedAge,
     defaultCreatedAt: new Date().toISOString().slice(0, 10),
     lukias,
   };
@@ -247,6 +279,7 @@ function renderView(viewName, data) {
 app.get("/", async (req, res) => {
   const sort = req.query.sort || "recent";
   const authorId = Number.parseInt(req.query.author, 10);
+  const age = req.query.age || "all";
   const partial = req.query.partial;
   const flashMessage = req.session.flashMessage || null;
   const flashError = req.session.flashError || null;
@@ -257,7 +290,7 @@ app.get("/", async (req, res) => {
     appUrl,
     flashMessage,
     flashError,
-    ...(await buildLukiaSectionData(sort, req.session.user || null, authorId)),
+    ...(await buildLukiaSectionData(sort, req.session.user || null, authorId, age)),
   };
 
   if (partial === "lukias") {
@@ -375,7 +408,12 @@ app.post("/lukias", async (req, res) => {
       const authorId = Number.parseInt(req.body.author, 10);
       const html = await renderView(
         "_lukia-list",
-        await buildLukiaSectionData(req.body.sort || "recent", req.session.user, authorId)
+        await buildLukiaSectionData(
+          req.body.sort || "recent",
+          req.session.user,
+          authorId,
+          req.body.age || "all"
+        )
       );
 
       res.json({
@@ -428,6 +466,7 @@ app.post("/ratings", async (req, res) => {
   const rating = Number(req.body.rating);
   const sort = req.body.sort || "recent";
   const author = req.body.author || "";
+  const age = req.body.age || "all";
 
   if (!Number.isInteger(lukiaId) || !Number.isInteger(rating) || rating < 1 || rating > 5) {
     if (wantsJson) {
@@ -436,7 +475,7 @@ app.post("/ratings", async (req, res) => {
     }
 
     req.session.flashError = "Ratings must be between 1 and 5.";
-    res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}`);
+    res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}&age=${encodeURIComponent(age)}`);
     return;
   }
 
@@ -462,7 +501,7 @@ app.post("/ratings", async (req, res) => {
   }
 
   req.session.flashMessage = "Rating saved.";
-  res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}`);
+  res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(author)}&age=${encodeURIComponent(age)}`);
 });
 
 app.get("/lukias/check", async (req, res) => {
@@ -501,6 +540,7 @@ app.post("/lukias/:id/delete", async (req, res) => {
   const lukiaId = Number(req.params.id);
   const sort = req.body.sort || "recent";
   const authorId = Number.parseInt(req.body.author, 10);
+  const age = req.body.age || "all";
 
   if (!Number.isInteger(lukiaId) || lukiaId <= 0) {
     if (wantsJson) {
@@ -546,7 +586,7 @@ app.post("/lukias/:id/delete", async (req, res) => {
   if (wantsJson) {
     const html = await renderView(
       "_lukia-list",
-      await buildLukiaSectionData(sort, req.session.user, authorId)
+      await buildLukiaSectionData(sort, req.session.user, authorId, age)
     );
 
     res.json({
@@ -558,7 +598,7 @@ app.post("/lukias/:id/delete", async (req, res) => {
   }
 
   req.session.flashMessage = `Deleted ${lukia.phrase}`;
-  res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(req.body.author || "")}`);
+  res.redirect(`/?sort=${encodeURIComponent(sort)}&author=${encodeURIComponent(req.body.author || "")}&age=${encodeURIComponent(age)}`);
 });
 
 app.get("/health", async (_req, res) => {

@@ -118,6 +118,7 @@ h1 {
   gap: 1rem;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .sorter {
@@ -133,9 +134,20 @@ h1 {
 
 .lukia-card {
   display: grid;
-  grid-template-columns: 1.8fr 1fr;
+  grid-template-columns: auto 1.8fr 1fr;
   gap: 1rem;
   padding: 1rem 1.15rem;
+}
+
+.rank-badge {
+  align-self: start;
+  min-width: 3.1rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--accent-dark);
+  font-weight: 700;
+  text-align: center;
 }
 
 .rating-form {
@@ -147,6 +159,12 @@ h1 {
 .rating-row {
   display: flex;
   gap: 0.6rem;
+}
+
+.rated-indicator {
+  margin-bottom: 0.2rem;
+  color: var(--accent-dark);
+  font-size: 0.95rem;
 }
 
 label {

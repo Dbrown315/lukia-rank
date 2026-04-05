@@ -73,8 +73,10 @@ function syncSortControlsWithUrl() {
   const params = new URLSearchParams(window.location.search);
   const sort = params.get("sort") || "recent";
   const author = params.get("author") || "";
+  const age = params.get("age") || "all";
   const sortSelect = document.querySelector("#sort");
   const authorSelect = document.querySelector("#author");
+  const ageSelect = document.querySelector("#age");
 
   if (sortSelect) {
     sortSelect.value = sort;
@@ -82,6 +84,10 @@ function syncSortControlsWithUrl() {
 
   if (authorSelect) {
     authorSelect.value = author;
+  }
+
+  if (ageSelect) {
+    ageSelect.value = age;
   }
 }
 
@@ -140,6 +146,7 @@ async function handlePostSubmit(event) {
   const button = postForm.querySelector("button[type='submit']");
   const currentSort = document.querySelector("#sort")?.value || "recent";
   const currentAuthor = document.querySelector("#author")?.value || "";
+  const currentAge = document.querySelector("#age")?.value || "all";
 
   setStatus(postStatus, "Posting...", "pending");
   setStatus(phraseStatus, "", null);
@@ -151,6 +158,7 @@ async function handlePostSubmit(event) {
     const body = new URLSearchParams(new FormData(postForm));
     body.set("sort", currentSort);
     body.set("author", currentAuthor);
+    body.set("age", currentAge);
 
     const payload = await fetchJson(postForm.action, {
       method: "POST",
@@ -167,7 +175,15 @@ async function handlePostSubmit(event) {
       currentSection.outerHTML = payload.html;
     }
 
-    updateHistory(new URLSearchParams({ sort: currentSort, author: currentAuthor }));
+    const params = new URLSearchParams();
+    params.set("sort", currentSort);
+    if (currentAuthor) {
+      params.set("author", currentAuthor);
+    }
+    if (currentAge && currentAge !== "all") {
+      params.set("age", currentAge);
+    }
+    updateHistory(params);
     bindDynamicHandlers();
     syncSortControlsWithUrl();
 
@@ -218,9 +234,13 @@ async function handleDeleteSubmit(event) {
     const params = new URLSearchParams();
     const sort = form.querySelector('input[name="sort"]')?.value || "recent";
     const author = form.querySelector('input[name="author"]')?.value || "";
+    const age = form.querySelector('input[name="age"]')?.value || "all";
     params.set("sort", sort);
     if (author) {
       params.set("author", author);
+    }
+    if (age && age !== "all") {
+      params.set("age", age);
     }
     updateHistory(params);
     bindDynamicHandlers();
@@ -297,6 +317,7 @@ async function handleRatingSubmit(event) {
   const status = form.querySelector(".rating-status");
   const summaryValue = form.closest(".lukia-card")?.querySelector("[data-rating-summary-value]");
   const summaryCount = form.closest(".lukia-card")?.querySelector("[data-rating-summary-count]");
+  const ratedIndicator = form.closest(".lukia-card")?.querySelector(".rated-indicator");
   const button = form.querySelector("button[type='submit']");
 
   setStatus(status, "Saving...", "pending");
@@ -323,6 +344,14 @@ async function handleRatingSubmit(event) {
     if (summaryCount) {
       const count = Number(payload.summary.rating_count) || 0;
       summaryCount.textContent = count > 0 ? `from ${count} rating${count === 1 ? "" : "s"}` : "";
+    }
+
+    if (ratedIndicator) {
+      const userRating = Number(payload.summary.user_rating);
+      ratedIndicator.innerHTML =
+        Number.isInteger(userRating) && userRating > 0
+          ? `You rated this <strong>${userRating}/5</strong>.`
+          : "You have not rated this yet.";
     }
 
     setStatus(status, payload.message || "Rating saved.", "success");
