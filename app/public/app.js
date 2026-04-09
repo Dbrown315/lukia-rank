@@ -27,6 +27,21 @@ function setStatus(element, message, state) {
   }
 }
 
+function getTodayLocalDate() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return `${year}-${month}-${day}`;
+}
+
 let phraseCheckTimer = null;
 
 async function refreshLukiaSection(searchParams, statusMessage) {
@@ -213,7 +228,7 @@ async function handlePostSubmit(event) {
     const dateInput = document.querySelector("#created_at");
     if (dateInput) {
       // Preserve the "default to today" behavior after an async post reset.
-      dateInput.value = new Date().toISOString().slice(0, 10);
+      dateInput.value = getTodayLocalDate();
     }
 
     setStatus(document.querySelector(".post-status"), payload.message, "success");

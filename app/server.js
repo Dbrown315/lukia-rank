@@ -112,6 +112,21 @@ function normalizePhrase(value) {
   return `Lukia ${trimmed}`;
 }
 
+function getTodayLocalDate() {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: process.env.TZ || "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(now);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return `${year}-${month}-${day}`;
+}
+
 async function getOrCreateUser(name) {
   const normalized = normalizeDisplayName(name);
   if (!normalized) {
@@ -262,7 +277,7 @@ async function buildLukiaSectionData(sort, currentUser, authorId, age) {
     selectedAuthorId,
     selectedAge,
     currentListUrl: buildListUrl(selectedSort, selectedAuthorId, selectedAge),
-    defaultCreatedAt: new Date().toISOString().slice(0, 10),
+    defaultCreatedAt: getTodayLocalDate(),
     lukias,
   };
 }
