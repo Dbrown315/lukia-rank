@@ -127,6 +127,23 @@ function getTodayLocalDate() {
   return `${year}-${month}-${day}`;
 }
 
+function parseDateInput(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return new Date();
+  }
+
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [, year, month, day] = match;
+    // Store date-only submissions at local noon so they cannot drift backward/forward
+    // when converted through UTC.
+    return new Date(Number(year), Number(month) - 1, Number(day), 12, 0, 0);
+  }
+
+  return new Date(trimmed);
+}
+
 async function getOrCreateUser(name) {
   const normalized = normalizeDisplayName(name);
   if (!normalized) {
@@ -518,7 +535,7 @@ app.post("/lukias", async (req, res) => {
 
   const phrase = normalizePhrase(req.body.phrase);
   const createdAtValue = String(req.body.created_at || "").trim();
-  const createdAt = createdAtValue ? new Date(createdAtValue) : new Date();
+  const createdAt = parseDateInput(createdAtValue);
 
   if (!phrase) {
     if (wantsJson) {
